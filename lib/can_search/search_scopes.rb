@@ -16,7 +16,13 @@ module CanSearch
     # Adds a new scope for the given model.  It works by looking up the scope class
     # in the scope_types hash and instantiating it with the given arguments.
     def scoped_by(name, options = {})
-      options[:scope] ||= :reference
+      unless options[:scope] 
+        options[:scope] = if @model.columns_hash.any?{ |k,v| k == name.to_s && v.type == :boolean }
+          :boolean 
+        else
+          :reference
+        end
+      end
       if scope_class = self.class.scope_types[options[:scope]]
         @scopes[name] = scope_class.new(@model, name, options)
       end
@@ -115,10 +121,39 @@ module CanSearch
       super && other.singular_name == @singular_name
     end
   end
+  
+  # Generates named_scopes for boolean fields.
+  #
+  #   class Topic
+  #     can_search do
+  #       scoped_by :live
+  #     end
+  #   end
+  #
+  #   Topic.search(:live => true)               # Topic.live
+  #   Topic.search(:live => false)              # Topic.not_live
+  #
+  class BooleanScope < BaseScope
+    attr_reader :negative
+    
+    def initialize(model, name, options = {})
+      super
+      @attribute     = options[:attribute]   || name.to_sym
+      @named_scope   = options[:named_scope] || name.to_sym
+      @negative = options[:negative]
+      @negative ||= @named_scope.to_s[/^has_/] ? @named_scope.to_s.gsub(/^has_/, "doesnt_have_").to_sym : "not_#{@named_scope.to_s}".to_sym
+      @model.named_scope @named_scope, Proc.new { |bool, _| {:conditions => {@attribute => bool.nil? ? true : bool}} }
+      @model.named_scope @negative, Proc.new { |bool, _| {:conditions => {@attribute => bool.nil? ? false : !bool}} }
+    end
 
+    def ==(other)
+      super && other.negative == @negative
+    end
+  end
 
   SearchScopes.scope_types.update \
-    :reference  => ReferenceScope
+    :reference  => ReferenceScope,
+    :boolean => BooleanScope
 end
 
 send respond_to?(:require_dependency) ? :require_dependency : :require, 'can_search/date_range_scope'

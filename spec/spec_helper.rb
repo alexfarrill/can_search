@@ -41,6 +41,7 @@ module CanSearch
     def self.create_table
       connection.create_table table_name, :force => true do |t|
         t.string   :name
+        t.boolean  :active, :null => false, :default => true
         t.integer  :parent_id
         t.datetime :created_at
       end

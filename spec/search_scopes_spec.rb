@@ -1,6 +1,22 @@
 require File.dirname(__FILE__) + '/spec_helper'
 
 module CanSearch
+  describe "all Boolean Scopes", :shared => true do
+    include CanSearchSpecHelper
+
+    it "instantiates boolean scope" do
+      Record.search_scopes[@scope.name].should == @scope
+    end
+
+    it "creates named_scope" do
+      Record.scopes[@scope.named_scope].should_not be_nil
+    end
+    
+    it "creates negative named_scope" do
+      Record.scopes[@scope.negative].should_not be_nil
+    end
+  end
+  
   describe "all Reference Scopes", :shared => true do
     include CanSearchSpecHelper
 
@@ -34,6 +50,28 @@ module CanSearch
   end
 
   describe SearchScopes do
+    describe "(Boolean Scope with no options)" do
+      before do
+        Record.can_search do
+          scoped_by :active
+        end
+        @scope = BooleanScope.new(Record, :active, :attribute => :active, :negative => :not_active, :scope => :boolean, :named_scope => :active)
+      end
+
+      it_should_behave_like "all Boolean Scopes"
+    end
+    
+    describe "(Boolean Scope with custom negative)" do
+      before do
+        Record.can_search do
+          scoped_by :active, :negative => :inactive
+        end
+        @scope = BooleanScope.new(Record, :active, :attribute => :active, :negative => :inactive, :scope => :boolean, :named_scope => :active)
+      end
+
+      it_should_behave_like "all Boolean Scopes"
+    end
+    
     describe "(Reference Scope with no options)" do
       before do
         Record.can_search do
